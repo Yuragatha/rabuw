@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# test 123
+
 # In[ ]:
 
 
 # -*- coding: utf-8 -*-
 """
+Created on Sun Feb 15 09:49:15 2026
+
 classification report	✅
 confusion matrix csv	✅
 roc auc csv	✅
@@ -13,13 +17,13 @@ runtime total	✅
 avg epoch time	✅
 epoch time log	✅
 early stopping
-
+-
 
 @author: indri
 """
 
 # ============================================================
-# FINAL PIPELINE – ROBERTA + BiGRU (IMDB)
+# FINAL PIPELINE – DISTILBERT + BiGRU (IMDB)
 # Reviewer-grade, logging + plot + timing
 # ============================================================
 from tqdm import tqdm
@@ -37,7 +41,7 @@ from torch import amp
 from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
 import matplotlib.pyplot as plt
 import seaborn as sns
-from transformers import RobertaTokenizer, RobertaModel
+from transformers import DistilBertTokenizer, DistilBertModel
 import nltk
 from nltk.corpus import wordnet
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
@@ -53,8 +57,8 @@ np.random.seed(SEED)
 random.seed(SEED)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-OUTPUT_DIR = rf"/content/drive/MyDrive/Colab Notebooks/TESIS FIX/ROBERTA-BIGRU/ROBERTA-BIGRU.1.RAW_{datetime.now():%Y%m%d_%H%M%S}"
-DATA_PATH = r"/content/drive/MyDrive/Colab Notebooks/PREPROCESS/1.RAW.csv"
+OUTPUT_DIR = rf"/content/drive/MyDrive/Colab Notebooks/TESIS FIX/HYBRID/HYBRID.5.R.L_{datetime.now():%Y%m%d_%H%M%S}"
+DATA_PATH = r"/content/drive/MyDrive/Colab Notebooks/PREPROCESS/5.R.L.csv"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -68,9 +72,29 @@ CHECKPOINT_PATH = os.path.join(OUTPUT_DIR, "checkpoint.pt")
 
 
 # ============================================================
+# LOAD DATASET
+# ============================================================
+"""nltk.download("wordnet")
+df = pd.read_csv("IMDB Dataset.csv")
+df['sentiment'] = df['sentiment'].map({"negative":0,"positive":1})
+df = df.sample(n=1000, random_state=SEED).reset_index(drop=True)
+
+texts = df['review'].astype(str).tolist()
+labels = df['sentiment'].tolist()
+# ============================================================
+# TRAIN / VAL / TEST SPLIT
+
+train_texts, test_texts, train_labels, test_labels = train_test_split(
+    texts, labels, test_size=0.2, random_state=SEED, stratify=labels
+)
+train_texts, val_texts, train_labels, val_labels = train_test_split(
+    train_texts, train_labels, test_size=0.1, random_state=SEED, stratify=train_labels
+)
+"""
+# ============================================================
 # DATASET & TOKENIZER
 # ============================================================
-tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+tokenizer = DistilBertTokenizer.from_pretrained("distilbert-base-uncased")
 MAX_LEN = 128
 BATCH_SIZE = 32
 
@@ -187,40 +211,26 @@ test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
 # ============================================================
 # MODEL
 # ============================================================
-class RoBERTa_BiGRU(nn.Module):
-    def __init__(self, bert_model="roberta-base", hidden_dim=256, num_classes=2, num_layers=2, dropout=0.3):
+class DistilBERT_BiGRU(nn.Module):
+    def __init__(self, bert_model="distilbert-base-uncased", hidden_dim=256, num_classes=2, num_layers=2, dropout=0.3):
         super().__init__()
-        self.bert = RobertaModel.from_pretrained(bert_model)
-
+        self.bert = DistilBertModel.from_pretrained(bert_model)
         embedding_dim = self.bert.config.hidden_size
-
-        self.gru = nn.GRU(
-            embedding_dim,
-            hidden_dim,
-            num_layers=num_layers,
-            bidirectional=True,
-            batch_first=True,
-            dropout=dropout
-        )
-
-        self.fc = nn.Linear(hidden_dim * 4, num_classes)
+        self.gru = nn.GRU(embedding_dim, hidden_dim, num_layers=num_layers,
+                          bidirectional=True, batch_first=True, dropout=dropout)
+        self.fc = nn.Linear(hidden_dim*4, num_classes)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, input_ids, attention_mask):
         out = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-
         last_hidden_state = out.last_hidden_state
-
         gru_out, _ = self.gru(last_hidden_state)
-
         avg_pool = torch.mean(gru_out, 1)
         max_pool, _ = torch.max(gru_out, 1)
-
         feat = torch.cat((avg_pool, max_pool), 1)
-
         return self.fc(self.dropout(feat))
 
-model = RoBERTa_BiGRU().to(DEVICE)
+model = DistilBERT_BiGRU().to(DEVICE)
 
 
 # ============================================================
@@ -234,7 +244,7 @@ config_dict = {
     "lr": 1.22e-06,
     "weight_decay": 0.01,
     "epochs": 50,
-    "model": "ROBERTA_BiGRU",
+    "model": "DistilBERT_BiGRU",
     "device": str(DEVICE)
 }
 pd.DataFrame([config_dict]).to_csv(CONFIG_FILE, index=False)
@@ -294,6 +304,7 @@ EPOCHS = config_dict["epochs"]
 def train_epoch(model, loader):
     model.train()
     total_loss, correct = 0, 0
+    from tqdm import tqdm
     for input_ids, attn, labels in tqdm(loader):
         input_ids, attn, labels = input_ids.to(DEVICE), attn.to(DEVICE), labels.to(DEVICE)
         optimizer.zero_grad()
@@ -408,7 +419,7 @@ with open(LOG_FILE, mode, newline="", encoding="utf-8") as f:
         model.train()
         train_loss, correct = 0,0
 
-        loop = tqdm(train_loader, desc=f"Epoch {epoch+1}/{EPOCHS}", leave=True, dynamic_ncols=True)
+        loop = tqdm(train_loader, desc=f"Epoch {epoch+1}/{EPOCHS}", leave=False)
 
         for input_ids, attn, labels in loop:
             input_ids, attn, labels = input_ids.to(DEVICE), attn.to(DEVICE), labels.to(DEVICE)
@@ -427,7 +438,7 @@ with open(LOG_FILE, mode, newline="", encoding="utf-8") as f:
             train_loss += loss.item()
             correct += (logits.argmax(1)==labels).sum().item()
 
-            #loop.set_postfix(loss=loss.item())
+            loop.set_postfix(loss=loss.item())
 
         train_loss /= len(train_loader)
         train_acc = correct / len(train_loader.dataset)
@@ -499,7 +510,7 @@ pd.DataFrame([{"total_runtime_s":total_runtime,
 # ============================================================
 # FINAL TEST EVAL + ROC
 # ============================================================
-best_model = RoBERTa_BiGRU().to(DEVICE)
+best_model = DistilBERT_BiGRU().to(DEVICE)
 best_model.load_state_dict(torch.load(BEST_MODEL_PATH, map_location=DEVICE))
 #best_model.load_state_dict(torch.load(BEST_MODEL_PATH))
 test_loss, test_acc, y_pred, y_true, y_probs = evaluate(best_model, test_loader)
@@ -596,7 +607,7 @@ best_epoch = np.argmax(val_accs) + 1 if len(val_accs) > 0 else 0
 
 
 summary_dict = {
-    "model": "ROBERTA_BiGRU",
+    "model": "DistilBERT_BiGRU",
     "best_epoch": best_epoch,
     "best_val_acc": max(val_accs),
     "final_test_acc": test_acc,
@@ -622,3 +633,9 @@ else:
 
 print("✅ Experiment summary saved.")
 
+
+# In[ ]:
+
+
+from google.colab import drive
+drive.mount('/content/drive')
