@@ -53,8 +53,8 @@ np.random.seed(SEED)
 random.seed(SEED)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-OUTPUT_DIR = rf"/content/drive/MyDrive/Colab Notebooks/TESIS FIX/ROBERTA-BIGRU/ROBERTA-BIGRU.1.RAW_{datetime.now():%Y%m%d_%H%M%S}"
-DATA_PATH = r"/content/drive/MyDrive/Colab Notebooks/PREPROCESS/1.RAW.csv"
+OUTPUT_DIR = rf"D:\LATIAN\ROBERTA-BIGRU.1.RAW_{datetime.now():%Y%m%d_%H%M%S}"
+DATA_PATH = r"D:\LATIAN\PREPROCESS\1.RAW.csv"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -141,9 +141,9 @@ texts = df['review'].astype(str).tolist()
 labels = df['sentiment'].tolist()
 
 #=======================================================
-train_idx = np.load(r"/content/drive/MyDrive/Colab Notebooks/TESIS FIX/SPLIT IDX/train.npy")
-val_idx   = np.load(r"/content/drive/MyDrive/Colab Notebooks/TESIS FIX/SPLIT IDX/val.npy")
-test_idx  = np.load(r"/content/drive/MyDrive/Colab Notebooks/TESIS FIX/SPLIT IDX/test.npy")
+train_idx = np.load(r"D:\LATIAN\SPLIT IDX\train.npy")
+val_idx   = np.load(r"D:\LATIAN\SPLIT IDX\val.npy")
+test_idx  = np.load(r"D:\LATIAN\SPLIT IDX\test.npy")
 
 train_texts = [texts[i] for i in train_idx]
 train_labels = [labels[i] for i in train_idx]
